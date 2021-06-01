@@ -8,29 +8,12 @@ structure Language : Type 1 :=
 
 -- First Order Terms
 inductive FOLTerm (L : Language) : Type
-| var : ℕ → FOLTerm
-| func : ∀ {n : ℕ} (name : L.functions n) (args : fin.vec FOLTerm n), FOLTerm
-
-constant isBoundedTerm : ∀{L : Language}, ℕ → FOLTerm L → Prop
-
-axiom varisBoundedTerm {L : Language} {n k : ℕ} 
-                      : k < n → isBoundedTerm n (FOLTerm.var k : FOLTerm L)
-
-axiom funcisBoundedTerm {L : Language} {n k : ℕ} {name : L.functions k} 
-                       {args : fin.vec (FOLTerm L) k}
-                       : (∀{i : fin k}, (isBoundedTerm n (args i))) 
-                         → isBoundedTerm n (FOLTerm.func name args)
+| var  : ℕ → FOLTerm
+| func : ∀ {n : ℕ} (name : L.functions n) (args : fin.vec n FOLTerm), FOLTerm
 
 -- First Order Formulas
 inductive FOLPred (L : Language) : Type
-| pred :  ∀ {n : ℕ} (name : L.relations n) (args : fin.vec (FOLTerm L) n), FOLPred
-
-constant isBoundedPred : ∀{L : Language}, ℕ → FOLPred L → Prop
-
-axiom predisBoundedPred {L : Language} {n k : ℕ} {name : L.relations k} 
-                       {args : fin.vec (FOLTerm L) k}
-                       : (∀{i : fin k}, (isBoundedTerm n (args i))) 
-                         → isBoundedPred n (FOLPred.pred name args)
+| pred :  ∀ {n : ℕ} (name : L.relations n) (args : fin.vec n (FOLTerm L)), FOLPred
 
 inductive FOLFormula (L : Language) : Type
 | bottom : FOLFormula
@@ -54,39 +37,28 @@ prefix `!_`: max := FOLFormula.not
 prefix `∀_`: 110 := FOLFormula.for_all
 prefix `∃_`: 110 := FOLFormula.exist
 
--- This says a formula has no free variables above n
-inductive isBoundedFormula {L : Language} : ℕ → FOLFormula L → Prop
-| bottom : ∀n,                        isBoundedFormula n (⨯ : FOLFormula L)
-| top : ∀n,                           isBoundedFormula n (✓ : FOLFormula L)
-| pred : ∀n {p : FOLPred L},        isBoundedPred n p 
-                                    → isBoundedFormula n (FOLFormula.pred p)
-| eq : ∀n {t₁ t₂ : FOLTerm L},       isBoundedTerm n t₁ ∧isBoundedTerm n t₂ 
-                                    → isBoundedFormula n (t₁ _=_ t₂)
-| and : ∀n {f₁ f₂ : FOLFormula L},   isBoundedFormula n f₁ → isBoundedFormula n f₂
-                                    → isBoundedFormula n (f₁ _∧_ f₂)
-| or : ∀n {f₁ f₂ : FOLFormula L},    isBoundedFormula n f₁ → isBoundedFormula n f₂ 
-                                    → isBoundedFormula n (f₁ _∨_ f₂)
-| imply : ∀n {f₁ f₂ : FOLFormula L}, isBoundedFormula n f₁ → isBoundedFormula n f₂ 
-                                    → isBoundedFormula n (f₁ _→_ f₂)
-| not : ∀n {f : FOLFormula L},      isBoundedFormula n f
-                                    → isBoundedFormula n (!_ f)
-| for_all : ∀n {f : FOLFormula L},  isBoundedFormula (n + 1) f
-                                    → isBoundedFormula n (∀_ f)
-| exist : ∀n {f : FOLFormula L},    isBoundedFormula (n + 1) f
-                                    → isBoundedFormula n (∃_ f)
+inductive FOLBoundedT (L : Language) : ℕ → Type
+| var  : ∀{b : ℕ}, ℕ → FOLBoundedT b
+| func : ∀{b n : ℕ} (name : L.functions n) (args : fin.dvec n (FOLBoundedT)), 
+         FOLBoundedT b
 
--- n is supposed to represent the number of free variables 
-inductive FOLSentence (L : Language) : ℕ → Type
-| bottom : ∀n, FOLSentence n
-| top : ∀n, FOLSentence n
-| pred : ∀n, FOLPred L → FOLSentence n
-| eq : ∀n, FOLTerm L → FOLTerm L → FOLSentence n
-| and : ∀{n}, FOLSentence n → FOLSentence n → FOLSentence n
-| or : ∀{n}, FOLSentence n → FOLSentence n → FOLSentence n
-| imply : ∀{n}, FOLSentence n → FOLSentence n → FOLSentence n
-| not : ∀{n}, FOLSentence n → FOLSentence n
-| for_all : ∀{n}, FOLSentence (n + 1) → FOLSentence n
-| exist : ∀{n}, FOLSentence (n + 1) → FOLSentence n
+inductive FOLBoundedP (L : Language) : ℕ → Type
+| pred : ∀ {b n : ℕ} (name : L.relations n) (args : fin.dvec n (FOLBoundedT L)), 
+         FOLBoundedP b
+
+-- n is supposed to represent an upper bound of free variables
+-- i.e. all free variables that occur must be strictly below n
+inductive FOLBoundedF (L : Language) : ℕ → Type
+| bottom : ∀n, FOLBoundedF n
+| top : ∀n, FOLBoundedF n
+| pred : ∀n, FOLBoundedP L n → FOLBoundedF n
+| eq : ∀n, FOLTerm L → FOLTerm L → FOLBoundedF n
+| and : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
+| or : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
+| imply : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
+| not : ∀{n}, FOLBoundedF n → FOLBoundedF n
+| for_all : ∀{n}, FOLBoundedF (n + 1) → FOLBoundedF n
+| exist : ∀{n}, FOLBoundedF (n + 1) → FOLBoundedF n
 
 -- Semantics of First-Order Logic
 
@@ -96,8 +68,8 @@ inductive FOLSentence (L : Language) : ℕ → Type
   where U is the domain of the model -/
 structure Model (L : Language) :=
 (domain : Type)
-(terms : ∀ {n}, L.functions n → (fin.vec domain n → domain))
-(preds : ∀ {n}, L.relations n → (fin.vec domain n → Prop)) 
+(terms : ∀ {n}, L.functions n → (fin.vec n domain → domain))
+(preds : ∀ {n}, L.relations n → (fin.vec n domain → Prop)) 
 
 def termSemantics {L : Language} (m : Model L)
                   (varSemantics : ℕ → m.domain) : FOLTerm L → m.domain

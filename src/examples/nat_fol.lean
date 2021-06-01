@@ -26,7 +26,7 @@ FOLPred.pred natRels.equals (arg1 :: arg2 :: fin.empty)
 -- End Example
 
 -- Example 2a: model for the natural number language of example 1a
-def natFuncSemantics (n : ℕ) (c : natFuncs n) : (fin.vec ℕ n → ℕ) :=
+def natFuncSemantics (n : ℕ) (c : natFuncs n) : (fin.vec n ℕ → ℕ) :=
 match n, c with
 | 0, natFuncs.zero := (λ_, 0)
 | 0, natFuncs.one  := (λ_, 1)
@@ -34,7 +34,7 @@ match n, c with
 | 2, natFuncs.add  := (λargs, args 0 + args 1)
 end
 
-def natRelSemantics (n : ℕ) (c : natRels n) : (fin.vec ℕ n → Prop) :=
+def natRelSemantics (n : ℕ) (c : natRels n) : (fin.vec n ℕ → Prop) :=
 match n, c with
 | 2, natRels.equals := (λargs, args 0 = args 1)
 end
