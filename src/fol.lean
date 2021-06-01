@@ -38,24 +38,38 @@ prefix `∀_`: 110 := FOLFormula.for_all
 prefix `∃_`: 110 := FOLFormula.exist
 
 inductive FOLBoundedT (L : Language) : ℕ → Type
-| var  : ∀{b : ℕ}, ℕ → FOLBoundedT b
-| func : ∀{b n : ℕ} (name : L.functions n) (args : fin.dvec n (FOLBoundedT)), 
-         FOLBoundedT b
+| var  : ∀(i : ℕ), FOLBoundedT (i + 1)
+| func : ∀{n : ℕ} (name : L.functions n) {f : fin n → ℕ}
+         (args : fin.dvec n (λi, FOLBoundedT (f i))), 
+         FOLBoundedT (fin.max f)
+
+-- i.e. Given a FOLTerm, return a bound value k and a term bounded by k
+def FOLTerm.toBoundedT {L : Language} : FOLTerm L → Σk : ℕ, FOLBoundedT L k
+| (FOLTerm.var i) := ⟨i + 1, FOLBoundedT.var i⟩
+| (FOLTerm.func name args)
+  := let bArgs := (λi, (args i).toBoundedT) 
+     in ⟨fin.max $ fin.unzip_left bArgs, FOLBoundedT.func name (fin.unzip_right bArgs)⟩
 
 inductive FOLBoundedP (L : Language) : ℕ → Type
-| pred : ∀ {b n : ℕ} (name : L.relations n) (args : fin.dvec n (FOLBoundedT L)), 
-         FOLBoundedP b
+| pred : ∀{n : ℕ} (name : L.relations n) {f : fin n → ℕ}
+         (args : fin.dvec n (λi, FOLBoundedT L (f i))), 
+         FOLBoundedP (fin.max f)
+
+def FOLPred.toBoundedP {L : Language} : FOLPred L → Σk : ℕ, FOLBoundedP L k
+| (FOLPred.pred name args)
+  := let bArgs := (λi, (args i).toBoundedT) 
+     in ⟨fin.max $ fin.unzip_left bArgs, FOLBoundedP.pred name (fin.unzip_right bArgs)⟩
 
 -- n is supposed to represent an upper bound of free variables
 -- i.e. all free variables that occur must be strictly below n
 inductive FOLBoundedF (L : Language) : ℕ → Type
-| bottom : ∀n, FOLBoundedF n
-| top : ∀n, FOLBoundedF n
-| pred : ∀n, FOLBoundedP L n → FOLBoundedF n
+| bottom : ∀{n}, FOLBoundedF n
+| top : ∀{n}, FOLBoundedF n
+| pred : ∀{n}, FOLBoundedP L n → FOLBoundedF n
 | eq : ∀n, FOLTerm L → FOLTerm L → FOLBoundedF n
-| and : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
-| or : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
-| imply : ∀{n}, FOLBoundedF n → FOLBoundedF n → FOLBoundedF n
+| and : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
+| or : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
+| imply : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
 | not : ∀{n}, FOLBoundedF n → FOLBoundedF n
 | for_all : ∀{n}, FOLBoundedF (n + 1) → FOLBoundedF n
 | exist : ∀{n}, FOLBoundedF (n + 1) → FOLBoundedF n
