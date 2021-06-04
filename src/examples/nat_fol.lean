@@ -1,5 +1,7 @@
 import fol
 
+set_option pp.beta true
+
 -- example 1a: A language of natural numbers with the constant symbols `zero` and `one`
 -- and the function symbols `succ` and `add`
 inductive natFuncs : ℕ → Type

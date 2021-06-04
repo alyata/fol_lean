@@ -13,19 +13,19 @@ inductive FOLTerm (L : Language) : Type
 
 -- First Order Formulas
 inductive FOLPred (L : Language) : Type
-| pred :  ∀ {n : ℕ} (name : L.relations n) (args : fin.vec n (FOLTerm L)), FOLPred
+| pred : ∀ {n : ℕ} (name : L.relations n) (args : fin.vec n (FOLTerm L)), FOLPred
 
 inductive FOLFormula (L : Language) : Type
-| bottom : FOLFormula
-| top : FOLFormula
-| pred : FOLPred L → FOLFormula
-| eq : FOLTerm L → FOLTerm L → FOLFormula
-| and : FOLFormula → FOLFormula → FOLFormula
-| or : FOLFormula → FOLFormula → FOLFormula
-| imply : FOLFormula → FOLFormula → FOLFormula
-| not : FOLFormula → FOLFormula
+| bottom  : FOLFormula
+| top     : FOLFormula
+| pred    : FOLPred L → FOLFormula
+| eq      : FOLTerm L → FOLTerm L → FOLFormula
+| and     : FOLFormula → FOLFormula → FOLFormula
+| or      : FOLFormula → FOLFormula → FOLFormula
+| imply   : FOLFormula → FOLFormula → FOLFormula
+| not     : FOLFormula → FOLFormula
 | for_all : FOLFormula → FOLFormula
-| exist : FOLFormula → FOLFormula
+| exist   : FOLFormula → FOLFormula
 
 notation `⨯` := FOLFormula.bottom -- \cross
 notation `✓` := FOLFormula.top -- \check
@@ -38,23 +38,27 @@ prefix `!_`: max := FOLFormula.not
 prefix `∀_`: 110 := FOLFormula.for_all
 prefix `∃_`: 110 := FOLFormula.exist
 
+-- bounded representations of terms and formulas such that the type carries
+-- a parameter n such that all *free* variables occuring in the term/formula
+-- are less than n.
+
 inductive FOLBoundedT (L : Language) : ℕ → Type
 | var  : ∀(i : ℕ), FOLBoundedT (i + 1)
-| func : ∀{n : ℕ} (name : L.functions n) {f : fin n → ℕ}
+| func : ∀{n : ℕ} {f : fin n → ℕ} (name : L.functions n)
          (args : fin.dvec n (λi, FOLBoundedT (f i))), 
          FOLBoundedT (fin.max f)
 
 def FOLClosedTerm (L : Language) : Type := FOLBoundedT L 0
 
--- i.e. Given a FOLTerm, return a bound value k and a term bounded by k
+-- Given an unbounded term, return a bound value k and a term bounded by k
 def FOLTerm.toBoundedT {L : Language} : FOLTerm L → Σ{k : ℕ}, FOLBoundedT L k
 | (FOLTerm.var i) := ⟨i + 1, FOLBoundedT.var i⟩
-| (FOLTerm.func name args)
-  := let bArgs := (λi, (args i).toBoundedT) 
-     in ⟨fin.max $ fin.unzip_left bArgs, FOLBoundedT.func name (fin.unzip_right bArgs)⟩
+| (FOLTerm.func name args) :=
+  let bArgs := (λi, (args i).toBoundedT) 
+  in ⟨fin.max $ fin.unzip_left bArgs, FOLBoundedT.func name (fin.unzip_right bArgs)⟩
 
 inductive FOLBoundedP (L : Language) : ℕ → Type
-| pred : ∀{n : ℕ} (name : L.relations n) {f : fin n → ℕ}
+| pred : ∀{n : ℕ} {f : fin n → ℕ} (name : L.relations n)
          (args : fin.dvec n (λi, FOLBoundedT L (f i))), 
          FOLBoundedP (fin.max f)
 
@@ -62,42 +66,47 @@ def FOLClosedPred (L : Language) : Type := FOLBoundedP L 0
 
 def FOLPred.toBoundedP {L : Language} : FOLPred L → Σ{k : ℕ}, FOLBoundedP L k
 | (FOLPred.pred name args) := 
-  let bArgs := (λi, (args i).toBoundedT) 
-  in  ⟨fin.max $ fin.unzip_left bArgs, FOLBoundedP.pred name (fin.unzip_right bArgs)⟩
+  let b_args := (λi, (args i).toBoundedT)
+  in  ⟨fin.max $ fin.unzip_left b_args, FOLBoundedP.pred name (fin.unzip_right b_args)⟩
 
--- n is supposed to represent an upper bound of free variables
--- i.e. all free variables that occur must be strictly below n
 inductive FOLBoundedF (L : Language) : ℕ → Type
-| bottom : FOLBoundedF 0
-| top : FOLBoundedF 0
-| pred : ∀{n}, FOLBoundedP L n → FOLBoundedF n
-| eq : ∀{n m}, FOLBoundedT L n → FOLBoundedT L m → FOLBoundedF (max n m)
-| and : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
-| or : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
-| imply : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
-| not : ∀{n}, FOLBoundedF n → FOLBoundedF n
+| bottom  : FOLBoundedF 0
+| top     : FOLBoundedF 0
+| pred    : ∀{n}, FOLBoundedP L n → FOLBoundedF n
+| eq      : ∀{n m}, FOLBoundedT L n → FOLBoundedT L m → FOLBoundedF (max n m)
+| and     : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
+| or      : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
+| imply   : ∀{n m}, FOLBoundedF n → FOLBoundedF m → FOLBoundedF (max n m)
+| not     : ∀{n}, FOLBoundedF n → FOLBoundedF n
 | for_all : ∀{n}, FOLBoundedF n → FOLBoundedF (n - 1)
-| exist : ∀{n}, FOLBoundedF n → FOLBoundedF (n - 1)
+| exist   : ∀{n}, FOLBoundedF n → FOLBoundedF (n - 1)
+
+notation `:⨯` := FOLBoundedF.bottom -- \cross
+notation `:✓` := FOLBoundedF.top -- \check
+prefix `:P_` : max := FOLBoundedF.pred
+infixr `_:=_`: 88 := FOLBoundedF.eq
+infixr `_:∧_`: 60 := FOLBoundedF.and
+infixr `_:∨_`: 61 := FOLBoundedF.or
+infixr `_:→_`: 62 := FOLBoundedF.imply
+prefix `:!_`: max := FOLBoundedF.not
+prefix `:∀_`: 110 := FOLBoundedF.for_all
+prefix `:∃_`: 110 := FOLBoundedF.exist
 
 def FOLFormula.toBoundedF {L : Language} : FOLFormula L → Σk : ℕ, FOLBoundedF L k
-| ⨯ := ⟨0, FOLBoundedF.bottom⟩
-| ✓ := ⟨0, FOLBoundedF.top⟩
-| (FOLFormula.pred p) := p.toBoundedP.map id (@FOLBoundedF.pred L)
-| (t₁ _=_ t₂) := 
-  let bt₁ := t₁.toBoundedT, bt₂ := t₂.toBoundedT
-  in  ⟨max bt₁.fst bt₂.fst, FOLBoundedF.eq bt₁.snd bt₂.snd⟩
-| (f₁ _∧_ f₂) :=
-  let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
-  in  ⟨max bf₁.fst bf₂.fst, FOLBoundedF.and bf₁.snd bf₂.snd⟩
-| (f₁ _∨_ f₂) :=
-  let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
-  in  ⟨max bf₁.fst bf₂.fst, FOLBoundedF.or bf₁.snd bf₂.snd⟩
-| (f₁ _→_ f₂) :=
-  let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
-  in  ⟨max bf₁.fst bf₂.fst, FOLBoundedF.imply bf₁.snd bf₂.snd⟩
-| (!_ f) := f.toBoundedF.map id (@FOLBoundedF.not L)
-| (∀_ f) := f.toBoundedF.map (λn, n - 1) (@FOLBoundedF.for_all L)
-| (∃_ f) := f.toBoundedF.map (λn, n - 1) (@FOLBoundedF.exist L)
+| ⨯                   := ⟨0, :⨯⟩
+| ✓                   := ⟨0, :✓⟩
+| (FOLFormula.pred p) := let bp := p.toBoundedP in ⟨bp.fst, :P_ bp.snd⟩
+| (t₁ _=_ t₂)          := let bt₁ := t₁.toBoundedT, bt₂ := t₂.toBoundedT
+                         in  ⟨max bt₁.fst bt₂.fst, bt₁.snd _:=_ bt₂.snd⟩
+| (f₁ _∧_ f₂)          := let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
+                         in  ⟨max bf₁.fst bf₂.fst, bf₁.snd _:∧_ bf₂.snd⟩
+| (f₁ _∨_ f₂)          := let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
+                         in  ⟨max bf₁.fst bf₂.fst, bf₁.snd _:∨_ bf₂.snd⟩
+| (f₁ _→_ f₂)          := let bf₁ := f₁.toBoundedF, bf₂ := f₂.toBoundedF
+                         in  ⟨max bf₁.fst bf₂.fst, bf₁.snd _:→_ bf₂.snd⟩
+| (!_ f)             := let bf := f.toBoundedF in ⟨bf.fst, :!_ bf.snd⟩
+| (∀_ f)             := let bf := f.toBoundedF in ⟨bf.fst - 1, :∀_ bf.snd⟩
+| (∃_ f)             := let bf := f.toBoundedF in ⟨bf.fst - 1, :∃_ bf.snd⟩
 
 def FOLSentence (L : Language) : Type := FOLBoundedF L 0
 

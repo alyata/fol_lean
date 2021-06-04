@@ -10,13 +10,19 @@ def fin.vec_to_dvec {n : ℕ} {U : Type} (v : fin.vec n U) : fin.dvec n (λ_, U)
 def fin.map {U V: Type} {n : ℕ} (f : U → V) (v : fin.vec n U) : fin.vec n V :=
 λi, f (v i)
 
-def fin.max' {n : ℕ} (vec : fin.vec (n + 1) ℕ) : fin (n + 1) → ℕ
-| ⟨0, _⟩     := vec 0
-| ⟨k + 1, hk⟩ := max (vec (k + 1)) (fin.max' ⟨k, k.lt_succ_self.trans hk⟩)
+def fin.max' {n : ℕ} (vec : fin.vec (n + 1) ℕ) : fin (n + 1) → ℕ :=
+λfn, subtype.rec_on fn 
+(λm p, nat.rec_on m
+  (vec 0) -- Base Case
+  (λk ih, max (vec (k + 1)) ih) -- Inductive Case
+)
+--The more readable version of max' but that causes timeouts when used for #reduce computation
+--| ⟨0, _⟩      := vec 0
+--| ⟨k + 1, hk⟩ := max (vec (k + 1)) (fin.max' ⟨k, k.lt_succ_self.trans hk⟩)
 
 def fin.max {n : ℕ} : (fin.vec n ℕ) → ℕ :=
 match n with
-| 0 := λv, 0
+| 0       := λv, 0
 | (k + 1) := λv, @fin.max' k v (fin.last k)
 end
 
